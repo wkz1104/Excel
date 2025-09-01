@@ -62,7 +62,7 @@ if uploaded_file is not None:
         result_df = analyze_materials(df)
         
         # 显示分析结果
-        st.subheader("整合后的材料统计信息（包含重量）：")
+        st.subheader("整合后的材料统计信息：")
         st.dataframe(result_df)
         
     except Exception as e:
