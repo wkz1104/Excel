@@ -9,20 +9,41 @@ st.write("上传包含材料信息的Excel文件，系统将自动分析并展�
 # 文件上传组件
 uploaded_file = st.file_uploader("选择Excel文件", type=["xlsx", "xls"])
 
+def extract_numeric_value(value):
+    """从字符串中提取数字部分，返回浮点数"""
+    if pd.isna(value):
+        return 0
+    
+    # 如果已经是数字，直接返回
+    if isinstance(value, (int, float)):
+        return float(value)
+    
+    # 转换为字符串处理
+    str_value = str(value)
+    
+    # 使用正则表达式提取数字（支持整数、小数和负数）
+    match = re.search(r'[-+]?\d+\.?\d*', str_value)
+    if match:
+        return float(match.group())
+    return 0  # 如果没有找到数字，返回0
+
 def analyze_materials(df):
     # 设置显示所有行（不省略）
     pd.set_option('display.max_rows', None)
+    
+    # 提取做货数量中的数字部分
+    df['做货数量（数字）'] = df['做货数量'].apply(extract_numeric_value)
 
     # 仅按符号分割，保留完整信息（材料名称+重量）
     def extract_ingredients(ingredient_str):
         # 按多种符号（逗号、顿号等）切割成单个材料条目
-        materials = re.split(r'[,，、]', ingredient_str)
+        materials = re.split(r'[,，、]', str(ingredient_str))
         
         # 仅去除前后空格，保留完整信息
         pure_materials = []
         for mat in materials:
             mat_stripped = mat.strip()  # 只去除前后空格
-            if mat_stripped:  # 跳过空字符串
+            if mat_stripped and mat_stripped.lower() != 'nan':  # 跳过空字符串和NaN
                 pure_materials.append(mat_stripped)
         
         return pure_materials
@@ -37,8 +58,8 @@ def analyze_materials(df):
     ingredient_counts = expanded_df['材料列表'].value_counts().reset_index()
     ingredient_counts.columns = ['材料（含重量）', '出现次数']
 
-    # 统计完全相同的材料条目对应的做货数量总和
-    ingredient_quantity_sum = expanded_df.groupby('材料列表')['做货数量'].sum().reset_index()
+    # 统计完全相同的材料条目对应的做货数量总和（使用提取的数字部分）
+    ingredient_quantity_sum = expanded_df.groupby('材料列表')['做货数量（数字）'].sum().reset_index()
     ingredient_quantity_sum.columns = ['材料（含重量）', '做货数量总和']
 
     # 整合所有信息：合并相同材料的统计数据
@@ -68,4 +89,3 @@ if uploaded_file is not None:
     except Exception as e:
         st.error(f"处理文件时出错：{str(e)}")
         st.error("请确保上传的文件格式正确，并且包含'Sheet1'工作表以及'包含材料'和'做货数量'列")
-    
